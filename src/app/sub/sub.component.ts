@@ -1,17 +1,17 @@
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClient, HttpClientModule } from "@angular/common/http";
 import {
   Component,
+  DestroyRef,
   effect,
-  EffectRef,
   inject,
-  Injector,
   input,
-  signal,
-  WritableSignal,
-} from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { bindable, BindableSignal } from 'ngx-signals-plus';
-import { map } from 'rxjs';
+  OnInit,
+  viewChildren,
+} from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { bindable } from "ngx-signals-plus";
+import { fromEvent, take } from "rxjs";
+import { EntryComponent } from "../entry/entry.component";
 
 interface Todo {
   userId: number;
@@ -21,26 +21,42 @@ interface Todo {
 }
 
 @Component({
-  selector: 'app-sub',
+  selector: "app-sub",
   standalone: true,
-  imports: [HttpClientModule],
-  templateUrl: './sub.component.html',
-  styleUrl: './sub.component.css',
+  imports: [HttpClientModule, EntryComponent],
+  templateUrl: "./sub.component.html",
+  styleUrl: "./sub.component.css",
 })
-export class SubComponent {
+export class SubComponent implements OnInit {
   readonly url = input.required<string>();
 
-  private readonly httpClient = inject(HttpClient);
+  readonly subComponentElements = viewChildren(EntryComponent);
 
-  readonly subComponents: BindableSignal<string[]> = bindable([
-    'default sub component',
-  ]);
+  private readonly httpClient = inject(HttpClient);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly subComponents = bindable<Todo[] | undefined>(undefined);
+
+  constructor() {
+    const effectRef = effect(() => {
+      const elements = this.subComponentElements();
+      elements.forEach((element) =>
+        fromEvent(element.removeBtn().nativeElement, "click")
+          .pipe(take(1), takeUntilDestroyed(this.destroyRef))
+          .subscribe(() => {
+            console.log(element.id());
+            this.subComponents.set(
+              this.subComponents()?.filter((comp) => comp.id !== element.id())
+            );
+          })
+      );
+      if (elements.length) {
+        effectRef.destroy();
+      }
+    });
+  }
 
   ngOnInit(): void {
-    this.subComponents.bindTo(
-      this.httpClient
-        .get<Todo[]>(this.url())
-        .pipe(map((todos) => todos.map((todo) => todo.title)))
-    );
+    this.subComponents.bindTo(this.httpClient.get<Todo[]>(this.url()));
   }
 }
