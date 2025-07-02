@@ -1,6 +1,22 @@
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Component, computed, inject, input } from '@angular/core';
+import {
+  Component,
+  effect,
+  EffectRef,
+  inject,
+  Injector,
+  input,
+  signal,
+  WritableSignal,
+} from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+
+interface Todo {
+  userId: number;
+  id: number;
+  title: string;
+  completed: boolean;
+}
 
 @Component({
   selector: 'app-sub',
@@ -11,11 +27,25 @@ import { toSignal } from '@angular/core/rxjs-interop';
 })
 export class SubComponent {
   readonly url = input.required<string>();
+
+  private readonly injector = inject(Injector);
   private readonly httpClient = inject(HttpClient);
 
-  readonly subComponents = computed(() =>
-    toSignal(this.httpClient.get<string[]>(this.url()), {
-      initialValue: ['default sub component'],
-    })()
-  );
+  subComponents: WritableSignal<string[]> = signal(['default sub component']);
+
+  ngOnInit(): void {
+    const response = toSignal(this.httpClient.get<Todo[]>(this.url()), {
+      injector: this.injector,
+    });
+    const effectRef: EffectRef = effect(
+      () => {
+        const responseValue = response();
+        if (responseValue !== undefined) {
+          this.subComponents.set(responseValue.map((todo) => todo.title));
+          effectRef.destroy();
+        }
+      },
+      { injector: this.injector, allowSignalWrites: true }
+    );
+  }
 }

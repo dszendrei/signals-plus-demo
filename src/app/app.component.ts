@@ -9,5 +9,5 @@ import { SubComponent } from './sub/sub.component';
   styleUrl: './app.component.css',
 })
 export class AppComponent {
-  readonly url = 'https://jsonplaceholder.typicode.com/todos/1';
+  readonly url = 'https://jsonplaceholder.typicode.com/todos';
 }
