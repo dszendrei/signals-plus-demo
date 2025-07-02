@@ -1,5 +1,5 @@
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Component, inject, input } from '@angular/core';
+import { Component, computed, inject, input } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 
 @Component({
@@ -13,7 +13,9 @@ export class SubComponent {
   readonly url = input.required<string>();
   private readonly httpClient = inject(HttpClient);
 
-  readonly subComponents = toSignal(this.httpClient.get<string[]>(this.url()), {
-    initialValue: ['default sub component'],
-  });
+  readonly subComponents = computed(() =>
+    toSignal(this.httpClient.get<string[]>(this.url()), {
+      initialValue: ['default sub component'],
+    })()
+  );
 }
