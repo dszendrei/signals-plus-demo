@@ -10,6 +10,8 @@ import {
   WritableSignal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { bindable, BindableSignal } from 'ngx-signals-plus';
+import { map } from 'rxjs';
 
 interface Todo {
   userId: number;
@@ -28,24 +30,17 @@ interface Todo {
 export class SubComponent {
   readonly url = input.required<string>();
 
-  private readonly injector = inject(Injector);
   private readonly httpClient = inject(HttpClient);
 
-  subComponents: WritableSignal<string[]> = signal(['default sub component']);
+  readonly subComponents: BindableSignal<string[]> = bindable([
+    'default sub component',
+  ]);
 
   ngOnInit(): void {
-    const response = toSignal(this.httpClient.get<Todo[]>(this.url()), {
-      injector: this.injector,
-    });
-    const effectRef: EffectRef = effect(
-      () => {
-        const responseValue = response();
-        if (responseValue !== undefined) {
-          this.subComponents.set(responseValue.map((todo) => todo.title));
-          effectRef.destroy();
-        }
-      },
-      { injector: this.injector, allowSignalWrites: true }
+    this.subComponents.bindTo(
+      this.httpClient
+        .get<Todo[]>(this.url())
+        .pipe(map((todos) => todos.map((todo) => todo.title)))
     );
   }
 }
