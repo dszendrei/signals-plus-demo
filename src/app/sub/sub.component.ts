@@ -9,10 +9,9 @@ import {
   OnInit,
   viewChild,
 } from "@angular/core";
-import { bindable } from "ngx-signals-plus";
+import { bindable, signalFromEvent } from "ngx-signals-plus";
 import { EntryComponent } from "../entry/entry.component";
 import { AddEntryComponent } from "../add-entry/add-entry.component";
-import { fromEvent, Subject, takeUntil } from "rxjs";
 
 interface Todo {
   userId: number;
@@ -39,26 +38,18 @@ export class SubComponent implements OnInit, AfterViewInit {
 
   readonly subComponents = bindable<Todo[] | undefined>(undefined);
 
+  private readonly newEntry = signalFromEvent<MouseEvent, string | undefined>(
+    "click",
+    {
+      target: this.addEntry,
+      resultSelector: () =>
+        this.addEntry()?.nativeElement.querySelector("input")?.value,
+      activate: true,
+    }
+  );
+
   constructor() {
-    effect((onCleanup) => {
-      const destroy$ = new Subject<void>();
-      const addEntryComponent = this.addEntry()?.nativeElement;
-      if (addEntryComponent) {
-        fromEvent(
-          addEntryComponent,
-          "click",
-          () => addEntryComponent.querySelector("input")?.value
-        )
-          .pipe(takeUntil(destroy$))
-          .subscribe((value) => {
-            console.log(value);
-          });
-      }
-      onCleanup(() => {
-        destroy$.next();
-        destroy$.complete();
-      });
-    });
+    effect(() => console.log(this.newEntry()));
   }
 
   ngOnInit(): void {
