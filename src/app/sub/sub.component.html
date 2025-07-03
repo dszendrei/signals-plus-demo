@@ -1,3 +1,7 @@
-@for (comp of subComponents(); track $index) {
-<app-entry [title]="comp.title" [id]="comp.id"></app-entry>
+@if(subComponents() !== undefined) {
+  <app-add-entry></app-add-entry>
+  @for (comp of subComponents(); track $index) {
+    <app-entry [title]="comp.title" [id]="comp.id"></app-entry>
+  }
 }
+

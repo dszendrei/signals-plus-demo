@@ -1,17 +1,18 @@
 import { HttpClient, HttpClientModule } from "@angular/common/http";
 import {
+  AfterViewInit,
   Component,
-  DestroyRef,
   effect,
+  ElementRef,
   inject,
   input,
   OnInit,
-  viewChildren,
+  viewChild,
 } from "@angular/core";
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { bindable } from "ngx-signals-plus";
-import { fromEvent, take } from "rxjs";
 import { EntryComponent } from "../entry/entry.component";
+import { AddEntryComponent } from "../add-entry/add-entry.component";
+import { fromEvent, Subject, takeUntil } from "rxjs";
 
 interface Todo {
   userId: number;
@@ -23,40 +24,48 @@ interface Todo {
 @Component({
   selector: "app-sub",
   standalone: true,
-  imports: [HttpClientModule, EntryComponent],
+  imports: [HttpClientModule, EntryComponent, AddEntryComponent],
   templateUrl: "./sub.component.html",
   styleUrl: "./sub.component.css",
 })
-export class SubComponent implements OnInit {
+export class SubComponent implements OnInit, AfterViewInit {
   readonly url = input.required<string>();
 
-  readonly subComponentElements = viewChildren(EntryComponent);
+  readonly addEntry = viewChild(AddEntryComponent, {
+    read: ElementRef<HTMLElement>,
+  });
 
   private readonly httpClient = inject(HttpClient);
-  private readonly destroyRef = inject(DestroyRef);
 
   readonly subComponents = bindable<Todo[] | undefined>(undefined);
 
   constructor() {
-    const effectRef = effect(() => {
-      const elements = this.subComponentElements();
-      elements.forEach((element) =>
-        fromEvent(element.removeBtn().nativeElement, "click")
-          .pipe(take(1), takeUntilDestroyed(this.destroyRef))
-          .subscribe(() => {
-            console.log(element.id());
-            this.subComponents.set(
-              this.subComponents()?.filter((comp) => comp.id !== element.id())
-            );
-          })
-      );
-      if (elements.length) {
-        effectRef.destroy();
+    effect((onCleanup) => {
+      const destroy$ = new Subject<void>();
+      const addEntryComponent = this.addEntry()?.nativeElement;
+      if (addEntryComponent) {
+        fromEvent(
+          addEntryComponent,
+          "click",
+          () => addEntryComponent.querySelector("input")?.value
+        )
+          .pipe(takeUntil(destroy$))
+          .subscribe((value) => {
+            console.log(value);
+          });
       }
+      onCleanup(() => {
+        destroy$.next();
+        destroy$.complete();
+      });
     });
   }
 
   ngOnInit(): void {
     this.subComponents.bindTo(this.httpClient.get<Todo[]>(this.url()));
+  }
+
+  ngAfterViewInit(): void {
+    console.log(this.addEntry());
   }
 }
